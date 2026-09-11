@@ -3,33 +3,37 @@ import traceback
 import numpy as np
 import cv2
 from PIL import Image
-import torch
-import torch.nn.functional as F
+# NOTE: torch / ultralytics are imported lazily inside _load_model() only
+# when best.pt exists. This keeps free-tier (512MB) demo deploys alive.
 
 
 class DiabCareModel:
     def __init__(self):
         self.model = None
         self.demo_mode = True
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        try:
+            import torch  # lazy, may not be installed on slim builds
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        except Exception:
+            self.device = 'cpu'
         self.classes = ['Normal', 'Ulcer']
         self.risk_thresholds = {'low': 0.6, 'medium': 0.4, 'high': 0.0}
         self._load_model()
 
     def _load_model(self):
+        model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
+        if not os.path.exists(model_path):
+            self.model = None
+            self.demo_mode = True
+            print("No best.pt found - running in DEMO mode. "
+                  "Train a 2-class DFU model and place it at backend/model/best.pt "
+                  "for real predictions.")
+            return
         try:
             from ultralytics import YOLO
-            model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
-            if os.path.exists(model_path):
-                self.model = YOLO(model_path)
-                self.demo_mode = False
-                print(f"Loaded trained YOLO model from {model_path}")
-            else:
-                self.model = None
-                self.demo_mode = True
-                print("No best.pt found - running in DEMO mode. "
-                      "Train a 2-class DFU model and place it at backend/model/best.pt "
-                      "for real predictions.")
+            self.model = YOLO(model_path)
+            self.demo_mode = False
+            print(f"Loaded trained YOLO model from {model_path}")
         except Exception as e:
             print(f"Model loading warning: {e}")
             self.model = None
@@ -44,6 +48,15 @@ class DiabCareModel:
         img = cv2.imread(image_path)
         if img is None:
             raise ValueError(f"Could not read image: {image_path}")
+        # Downscale huge phone photos (12MP+) to max 1024px.
+        # Prevents OOM + 502 timeouts on Render free tier.
+        h, w = img.shape[:2]
+        max_side = 1024
+        if max(h, w) > max_side:
+            scale = max_side / float(max(h, w))
+            img = cv2.resize(img, (int(w * scale), int(h * scale)),
+                             interpolation=cv2.INTER_AREA)
+            cv2.imwrite(image_path, img)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_pil = Image.fromarray(img)
         return img_pil, img

@@ -1,11 +1,13 @@
 flask>=3.0.0
 flask-cors>=4.0.0
 gunicorn>=21.0.0
-ultralytics>=8.2.0
-torch
-torchvision
 opencv-python>=4.8.0
 Pillow>=10.0.0
 reportlab>=4.0.0
 numpy>=1.24.0
 python-dateutil>=2.8.2
+# --- Real YOLO model only (needs 2GB+ RAM, paid Render plan) ---
+# Uncomment when you have backend/model/best.pt:
+# ultralytics>=8.2.0
+# torch
+# torchvision
