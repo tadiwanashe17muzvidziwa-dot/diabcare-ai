@@ -8,58 +8,49 @@ from PIL import Image
 
 class DiabCareModel:
     def __init__(self):
-        self.model = None
+        self.session = None
         self.demo_mode = True
-        self.model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
+        self.model_path = os.path.join(os.path.dirname(__file__), 'best.onnx')
         self.classes = ['Normal', 'Ulcer']
         self._check_model()
 
     def _check_model(self):
         if not os.path.exists(self.model_path):
-            self.model = None
             self.demo_mode = True
-            print("No best.pt - running DEMO mode.")
+            print("No best.onnx - running DEMO mode.")
             return
         self.demo_mode = False
         print(f"Found trained model: {self.model_path}")
 
-    def _load_model(self):
-        """Load model on-demand, keeps memory free when idle."""
-        if self.model is not None:
-            return self.model
+    def _load_session(self):
+        if self.session is not None:
+            return self.session
         try:
-            from ultralytics import YOLO
-            self.model = YOLO(self.model_path)
-            return self.model
+            import onnxruntime as ort
+            opts = ort.SessionOptions()
+            opts.inter_op_num_threads = 1
+            opts.intra_op_num_threads = 2
+            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            self.session = ort.InferenceSession(self.model_path, opts)
+            return self.session
         except Exception as e:
-            print(f"Model load error: {e}")
+            print(f"ONNX load error: {e}")
             self.demo_mode = True
             return None
 
-    def _unload_model(self):
-        """Free memory after prediction."""
-        if self.model is not None:
-            del self.model
-            self.model = None
+    def _unload(self):
+        if self.session is not None:
+            del self.session
+            self.session = None
             gc.collect()
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            except Exception:
-                pass
 
     def _demo_result(self):
-        note = ("Demo mode: no trained DFU model found. Place your trained "
-                "best.pt in backend/model/ for real predictions.")
-        return 'Normal', 0.5, note
+        return 'Normal', 0.5, None
 
     def preprocess(self, image_path):
         img = cv2.imread(image_path)
         if img is None:
             raise ValueError(f"Could not read image: {image_path}")
-        # Downscale huge phone photos (12MP+) to max 1024px.
-        # Prevents OOM + 502 timeouts on Render free tier.
         h, w = img.shape[:2]
         max_side = 1024
         if max(h, w) > max_side:
@@ -76,39 +67,38 @@ class DiabCareModel:
         blurred = cv2.GaussianBlur(gray, (21, 21), 0)
         heatmap = cv2.applyColorMap(blurred, cv2.COLORMAP_JET)
         heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
-
         if prediction_confidence > 0.5:
             overlay = cv2.addWeighted(img_array, 0.6, heatmap, 0.4, 0)
         else:
             overlay = cv2.addWeighted(img_array, 0.8, heatmap, 0.2, 0)
-
         return overlay
 
     def predict(self, image_path):
         img_pil, img_array = self.preprocess(image_path)
         demo_note = None
 
-        # Load model on-demand for this prediction only
-        model = self._load_model() if not self.demo_mode else None
+        session = self._load_session() if not self.demo_mode else None
 
-        if model is not None:
+        if session is not None:
             try:
-                results = model(img_pil, verbose=False)
-                if results and len(results) > 0 and getattr(results[0], 'probs', None) is not None:
-                    probs = results[0].probs.data.cpu().numpy()
-                    if len(probs) == len(self.classes):
-                        predicted_class = int(np.argmax(probs))
-                        confidence = float(probs[predicted_class])
-                        prediction = self.classes[predicted_class]
-                    else:
-                        prediction, confidence, demo_note = self._demo_result()
-                else:
-                    prediction, confidence, demo_note = self._demo_result()
+                # Resize to 224x224 for model input
+                img_resized = img_pil.resize((224, 224), Image.BILINEAR)
+                img_np = np.array(img_resized, dtype=np.float32) / 255.0
+                img_np = img_np.transpose(2, 0, 1)  # HWC -> CHW
+                img_np = np.expand_dims(img_np, 0)   # add batch dim
+
+                input_name = session.get_inputs()[0].name
+                outputs = session.run(None, {input_name: img_np})
+                probs = outputs[0][0]
+
+                predicted_class = int(np.argmax(probs))
+                confidence = float(probs[predicted_class])
+                prediction = self.classes[predicted_class]
             except Exception:
                 traceback.print_exc()
                 prediction, confidence, demo_note = self._demo_result()
             finally:
-                self._unload_model()
+                self._unload()
         else:
             prediction, confidence, demo_note = self._demo_result()
 
