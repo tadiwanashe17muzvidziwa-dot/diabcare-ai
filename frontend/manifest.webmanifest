@@ -1,0 +1,22 @@
+{
+  "name": "DiabCare AI - Diabetic Foot Screening",
+  "short_name": "DiabCare AI",
+  "description": "AI-powered diabetic foot screening. Screening tool only, not a medical diagnosis.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#1a73e8",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

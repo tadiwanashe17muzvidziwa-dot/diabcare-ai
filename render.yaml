@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: diabcare-ai
+    runtime: python
+    plan: starter # torch/ultralytics needs >512MB; free will OOM
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /api/health
+    disk:
+      name: diabcare-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /opt/render/project/src/data
+      - key: MAX_UPLOAD_MB
+        value: 8
+      - key: CORS_ORIGINS
+        sync: false # set to https://your-app.onrender.com for lockdown
+      - key: API_TOKEN
+        generateValue: true # mobile app must send X-API-Key header

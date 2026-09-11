@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>DiabCare AI - Diabetic Foot Screening</title>
+    <meta name="theme-color" content="#1a73e8">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-heartbeat"></i>
+                <span>DiabCare AI</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-section="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-section="scan">
+                    <i class="fas fa-camera"></i>
+                    <span>New Scan</span>
+                </a>
+                <a href="#" class="nav-item" data-section="history">
+                    <i class="fas fa-history"></i>
+                    <span>Scan History</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="disclaimer">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Screening tool only - Not a medical diagnosis</span>
+                </div>
+                <button class="btn btn-secondary btn-block" onclick="openSettings()" style="margin-top:10px">
+                    <i class="fas fa-cog"></i> Backend Settings
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active">
+                <div class="section-header">
+                    <h1>Dashboard</h1>
+                    <p>Overview of your diabetic foot screening activities</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-scans">0</h3>
+                            <p>Total Scans</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="low-risk">0</h3>
+                            <p>Low Risk</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="medium-risk">0</h3>
+                            <p>Medium Risk</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="high-risk">0</h3>
+                            <p>High Risk</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card quick-actions">
+                        <h2>Quick Actions</h2>
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" onclick="showSection('scan')">
+                                <i class="fas fa-camera"></i>
+                                Start New Scan
+                            </button>
+                            <button class="btn btn-secondary" onclick="showSection('history')">
+                                <i class="fas fa-history"></i>
+                                View History
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card recent-scans">
+                        <h2>Recent Scans</h2>
+                        <div id="recent-scans-list" class="scans-list">
+                            <p class="empty-state">No scans yet. Start your first scan!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- New Scan Section -->
+            <section id="scan" class="section">
+                <div class="section-header">
+                    <h1>New Scan</h1>
+                    <p>Upload a foot photograph for AI-powered screening</p>
+                </div>
+
+                <div class="scan-container">
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <h3>Drag & Drop your image here</h3>
+                            <p>or click to browse</p>
+                            <input type="file" id="file-input" accept="image/*" hidden>
+                            <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                                <i class="fas fa-folder-open"></i>
+                                Choose Image
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="preview-area" id="preview-area" style="display: none;">
+                        <div class="preview-header">
+                            <h3>Image Preview</h3>
+                            <button class="btn btn-icon" onclick="resetUpload()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="preview-image">
+                            <img id="preview-img" src="" alt="Preview">
+                        </div>
+                        <button class="btn btn-primary btn-block" id="analyze-btn" onclick="analyzeImage()">
+                            <i class="fas fa-brain"></i>
+                            Analyze Image
+                        </button>
+                    </div>
+
+                    <div class="result-area" id="result-area" style="display: none;">
+                        <div class="result-header">
+                            <h3>Analysis Results</h3>
+                            <button class="btn btn-icon" onclick="resetUpload()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="result-content">
+                            <div class="result-image">
+                                <img id="result-img" src="" alt="Result">
+                                <img id="heatmap-img" src="" alt="Heatmap" class="heatmap-overlay">
+                            </div>
+                            <div class="result-details">
+                                <div class="prediction-badge" id="prediction-badge">
+                                    <span id="prediction-text">NORMAL</span>
+                                </div>
+                                <div class="confidence-bar">
+                                    <label>Confidence</label>
+                                    <div class="bar">
+                                        <div class="bar-fill" id="confidence-bar"></div>
+                                    </div>
+                                    <span id="confidence-text">0%</span>
+                                </div>
+                                <div class="risk-badge" id="risk-badge">
+                                    <span id="risk-text">LOW RISK</span>
+                                </div>
+                                <div class="recommendations" id="recommendations">
+                                    <h4>Recommendations:</h4>
+                                    <ul id="recommendations-list"></ul>
+                                </div>
+                                <div class="result-actions">
+                                    <button class="btn btn-primary" onclick="downloadReport()">
+                                        <i class="fas fa-file-pdf"></i>
+                                        Download Report
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="resetUpload()">
+                                        <i class="fas fa-redo"></i>
+                                        New Scan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Section -->
+            <section id="history" class="section">
+                <div class="section-header">
+                    <h1>Scan History</h1>
+                    <p>View and manage all your previous scans</p>
+                </div>
+
+                <div class="history-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="history-search" placeholder="Search scans..." onkeyup="filterHistory()">
+                    </div>
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all" onclick="filterByRisk('all')">All</button>
+                        <button class="filter-btn" data-filter="HIGH" onclick="filterByRisk('HIGH')">High Risk</button>
+                        <button class="filter-btn" data-filter="MEDIUM" onclick="filterByRisk('MEDIUM')">Medium</button>
+                        <button class="filter-btn" data-filter="LOW" onclick="filterByRisk('LOW')">Low</button>
+                    </div>
+                </div>
+
+                <div class="history-grid" id="history-grid">
+                    <p class="empty-state">No scan history available.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-brain fa-spin"></i>
+            <p>Analyzing image...</p>
+            <p class="loading-subtext">AI is examining the photograph</p>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch(() => {});
+        });
+      }
+    </script>
+</body>
+</html>

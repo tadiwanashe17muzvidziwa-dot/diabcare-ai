@@ -1,0 +1,16 @@
+{
+  "name": "diabcare-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DiabCare AI mobile wrapper (Capacitor, no Flutter)",
+  "scripts": {
+    "sync": "cap sync",
+    "open:android": "cap open android",
+    "build:android": "cap sync android"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0"
+  }
+}

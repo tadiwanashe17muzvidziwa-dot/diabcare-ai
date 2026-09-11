@@ -1,0 +1,11 @@
+{
+  "appId": "com.diabcare.ai",
+  "appName": "DiabCare AI",
+  "webDir": "frontend",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

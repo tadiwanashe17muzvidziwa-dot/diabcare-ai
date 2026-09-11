@@ -1,0 +1,158 @@
+import os
+import traceback
+import numpy as np
+import cv2
+from PIL import Image
+import torch
+import torch.nn.functional as F
+
+
+class DiabCareModel:
+    def __init__(self):
+        self.model = None
+        self.demo_mode = True
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.classes = ['Normal', 'Ulcer']
+        self.risk_thresholds = {'low': 0.6, 'medium': 0.4, 'high': 0.0}
+        self._load_model()
+
+    def _load_model(self):
+        try:
+            from ultralytics import YOLO
+            model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
+            if os.path.exists(model_path):
+                self.model = YOLO(model_path)
+                self.demo_mode = False
+                print(f"Loaded trained YOLO model from {model_path}")
+            else:
+                self.model = None
+                self.demo_mode = True
+                print("No best.pt found - running in DEMO mode. "
+                      "Train a 2-class DFU model and place it at backend/model/best.pt "
+                      "for real predictions.")
+        except Exception as e:
+            print(f"Model loading warning: {e}")
+            self.model = None
+            self.demo_mode = True
+
+    def _demo_result(self):
+        note = ("Demo mode: no trained DFU model found. Place your trained "
+                "best.pt in backend/model/ for real predictions.")
+        return 'Normal', 0.5, note
+
+    def preprocess(self, image_path):
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError(f"Could not read image: {image_path}")
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img_pil = Image.fromarray(img)
+        return img_pil, img
+
+    def generate_heatmap(self, img_array, prediction_confidence):
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        blurred = cv2.GaussianBlur(gray, (21, 21), 0)
+        heatmap = cv2.applyColorMap(blurred, cv2.COLORMAP_JET)
+        heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
+
+        if prediction_confidence > 0.5:
+            overlay = cv2.addWeighted(img_array, 0.6, heatmap, 0.4, 0)
+        else:
+            overlay = cv2.addWeighted(img_array, 0.8, heatmap, 0.2, 0)
+
+        return overlay
+
+    def predict(self, image_path):
+        img_pil, img_array = self.preprocess(image_path)
+        demo_note = None
+
+        if self.model is not None and not self.demo_mode:
+            try:
+                results = self.model(img_pil, verbose=False)
+                if results and len(results) > 0 and getattr(results[0], 'probs', None) is not None:
+                    probs = results[0].probs.data.cpu().numpy()
+                    if len(probs) == len(self.classes):
+                        predicted_class = int(np.argmax(probs))
+                        confidence = float(probs[predicted_class])
+                        prediction = self.classes[predicted_class]
+                    else:
+                        prediction, confidence, demo_note = self._demo_result()
+                        print(f"Warning: model has {len(probs)} classes, "
+                              f"expected {len(self.classes)}. Using demo result.")
+                else:
+                    prediction, confidence, demo_note = self._demo_result()
+            except Exception:
+                traceback.print_exc()
+                prediction, confidence, demo_note = self._demo_result()
+        else:
+            prediction, confidence, demo_note = self._demo_result()
+
+        risk_level = self._calculate_risk(confidence, prediction)
+
+        heatmap = self.generate_heatmap(img_array, confidence)
+        heatmap_filename = f"heatmap_{os.path.basename(image_path)}"
+        heatmap_path = os.path.join(os.path.dirname(image_path), heatmap_filename)
+        cv2.imwrite(heatmap_path, cv2.cvtColor(heatmap, cv2.COLOR_RGB2BGR))
+
+        recommendations = self._get_recommendations(risk_level, prediction)
+        if demo_note:
+            recommendations = [demo_note] + recommendations
+
+        return {
+            'prediction': prediction,
+            'confidence': round(confidence * 100, 2),
+            'risk_level': risk_level,
+            'risk_score': self._risk_score(confidence, prediction),
+            'recommendations': recommendations,
+            'heatmap_path': heatmap_path,
+            'heatmap_url': f'/api/image/{heatmap_filename}',
+            'demo_mode': self.demo_mode or demo_note is not None
+        }
+
+    def _calculate_risk(self, confidence, prediction):
+        if prediction == 'Ulcer':
+            if confidence > 0.8:
+                return 'HIGH'
+            elif confidence > 0.5:
+                return 'MEDIUM'
+            else:
+                return 'UNCERTAIN'
+        else:
+            if confidence > 0.7:
+                return 'LOW'
+            else:
+                return 'UNCERTAIN'
+
+    def _risk_score(self, confidence, prediction):
+        if prediction == 'Ulcer':
+            return round(confidence * 100, 1)
+        else:
+            return round((1 - confidence) * 100, 1)
+
+    def _get_recommendations(self, risk_level, prediction):
+        recommendations = {
+            'HIGH': [
+                'Urgent: Seek professional medical evaluation immediately',
+                'Keep the affected area clean and dry',
+                'Avoid putting pressure on the foot',
+                'Document the wound with daily photos'
+            ],
+            'MEDIUM': [
+                'Schedule a medical appointment within 1-2 weeks',
+                'Monitor the area daily for changes',
+                'Keep feet clean and properly moisturized',
+                'Check blood glucose levels regularly'
+            ],
+            'LOW': [
+                'Continue regular foot inspections',
+                'Maintain proper foot hygiene',
+                'Wear appropriate footwear',
+                'Schedule routine diabetic foot screening'
+            ],
+            'UNCERTAIN': [
+                'Retake the image with better lighting',
+                'Ensure the foot is clean and dry',
+                'Consult a healthcare professional for clarification',
+                'Try a different angle for the photo'
+            ]
+        }
+        return recommendations.get(risk_level, recommendations['UNCERTAIN'])
