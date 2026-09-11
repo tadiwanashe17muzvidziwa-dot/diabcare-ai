@@ -126,12 +126,7 @@ class DiabCareModel:
 
     def _calculate_risk(self, confidence, prediction):
         if prediction == 'Ulcer':
-            if confidence > 0.8:
-                return 'HIGH'
-            elif confidence > 0.5:
-                return 'MEDIUM'
-            else:
-                return 'UNCERTAIN'
+            return 'MEDIUM'
         else:
             if confidence > 0.7:
                 return 'LOW'
@@ -153,7 +148,7 @@ class DiabCareModel:
                 'Document the wound with daily photos'
             ],
             'MEDIUM': [
-                'Schedule a medical appointment within 1-2 weeks',
+                'Schedule a medical appointment for professional evaluation',
                 'Monitor the area daily for changes',
                 'Keep feet clean and properly moisturized',
                 'Check blood glucose levels regularly'
