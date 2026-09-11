@@ -62,6 +62,24 @@ def _check_auth():
     return auth == API_TOKEN
 
 
+def _device_id():
+    """Per-phone isolation: each phone sends its own X-Device-Id.
+    Falls back to 'web' for old browsers without one."""
+    did = (request.headers.get('X-Device-Id', '') or '').strip()
+    if not did and request.args.get('device_id'):
+        did = request.args.get('device_id').strip()
+    if not did:
+        try:
+            data = request.get_json(silent=True) or {}
+            did = str(data.get('device_id', '')).strip()
+        except Exception:
+            did = ''
+    # Basic sanity: limit length, allow alnum + - _ :
+    if not did or len(did) > 64:
+        return 'web'
+    return did
+
+
 def _allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -141,7 +159,8 @@ def analyze_image():
         prediction=result['prediction'],
         confidence=result['confidence'],
         risk_level=result['risk_level'],
-        heatmap_path=result.get('heatmap_path')
+        heatmap_path=result.get('heatmap_path'),
+        device_id=_device_id()
     )
 
     result['scan_id'] = scan_id
@@ -155,7 +174,7 @@ def analyze_image():
 def get_history():
     if not _check_auth():
         return jsonify({'error': 'Unauthorized'}), 401
-    scans = db.get_all_scans()
+    scans = db.get_all_scans(device_id=_device_id())
     return jsonify(scans)
 
 
@@ -163,7 +182,7 @@ def get_history():
 def get_scan(scan_id):
     if not _check_auth():
         return jsonify({'error': 'Unauthorized'}), 401
-    scan = db.get_scan(scan_id)
+    scan = db.get_scan(scan_id, device_id=_device_id())
     if not scan:
         return jsonify({'error': 'Scan not found'}), 404
     return jsonify(scan)
@@ -173,7 +192,7 @@ def get_scan(scan_id):
 def delete_scan(scan_id):
     if not _check_auth():
         return jsonify({'error': 'Unauthorized'}), 401
-    scan = db.get_scan(scan_id)
+    scan = db.get_scan(scan_id, device_id=_device_id())
     if not scan:
         return jsonify({'error': 'Scan not found'}), 404
 
@@ -187,7 +206,7 @@ def delete_scan(scan_id):
                 except OSError:
                     pass
 
-    db.delete_scan(scan_id)
+    db.delete_scan(scan_id, device_id=_device_id())
     return jsonify({'message': 'Scan deleted'})
 
 
@@ -195,7 +214,7 @@ def delete_scan(scan_id):
 def generate_report(scan_id):
     if not _check_auth():
         return jsonify({'error': 'Unauthorized'}), 401
-    scan = db.get_scan(scan_id)
+    scan = db.get_scan(scan_id, device_id=_device_id())
     if not scan:
         return jsonify({'error': 'Scan not found'}), 404
 
@@ -208,7 +227,7 @@ def generate_report(scan_id):
 def get_stats():
     if not _check_auth():
         return jsonify({'error': 'Unauthorized'}), 401
-    stats = db.get_statistics()
+    stats = db.get_statistics(device_id=_device_id())
     return jsonify(stats)
 
 
@@ -219,6 +238,9 @@ def get_image(filename):
     # Strict filename check: only uuid + allowed ext, no slashes
     safe = secure_filename(filename)
     if safe != filename or not _allowed_file(filename):
+        return jsonify({'error': 'Not found'}), 404
+    # Ownership check: only serve images belonging to this device
+    if not db.owns_file(filename, _device_id()):
         return jsonify({'error': 'Not found'}), 404
     return send_from_directory(UPLOAD_FOLDER, filename)
 

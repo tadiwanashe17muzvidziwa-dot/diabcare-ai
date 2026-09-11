@@ -4,8 +4,17 @@ const _isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform &&
 const _isFileProto = location.protocol === 'file:' || location.protocol === 'capacitor:';
 const API_BASE = (_savedApi || ((_isCapacitor || _isFileProto) ? DEFAULT_REMOTE_API : '/api')).replace(/\/$/, '');
 const API_KEY = localStorage.getItem('diabcare_api_key') || '';
+// Per-phone ID: each phone/browser gets its own random ID once,
+// so /api/stats + history only show YOUR scans.
+let DEVICE_ID = localStorage.getItem('diabcare_device_id') || '';
+if (!DEVICE_ID) {
+    DEVICE_ID = 'dev-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    localStorage.setItem('diabcare_device_id', DEVICE_ID);
+}
 function apiHeaders(extra = {}) {
-    return API_KEY ? { 'X-API-Key': API_KEY, ...extra } : extra;
+    const h = { 'X-Device-Id': DEVICE_ID, ...extra };
+    if (API_KEY) h['X-API-Key'] = API_KEY;
+    return h;
 }
 function resolveApiUrl(u) {
     if (!u) return u;
