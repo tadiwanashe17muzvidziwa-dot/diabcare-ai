@@ -10,6 +10,7 @@ training/runs/
 data/*.db
 *.pt
 !backend/yolov8n-cls.pt
+!backend/model/best.pt
 node_modules/
 android/
 .DS_Store
