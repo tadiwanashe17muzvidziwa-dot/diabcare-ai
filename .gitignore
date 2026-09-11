@@ -4,10 +4,9 @@ __pycache__/
 .venv/
 venv/
 .env
-data/scans/*
-!data/scans/.gitkeep
-data/reports/*
-!data/reports/.gitkeep
+data/dataset/
+data/dataset_raw/
+training/runs/
 data/*.db
 *.pt
 !backend/yolov8n-cls.pt
