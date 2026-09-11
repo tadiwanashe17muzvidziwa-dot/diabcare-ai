@@ -27,6 +27,7 @@ body {
     background: var(--bg);
     color: var(--text);
     line-height: 1.6;
+    overflow-x: hidden;
 }
 
 .app-container {
@@ -37,13 +38,25 @@ body {
 /* Sidebar */
 .sidebar {
     width: 260px;
-    background: linear-gradient(135deg, #023E8A 0%, #0077B6 50%, #00B4D8 100%);
+    background: linear-gradient(180deg, #023E8A 0%, #0077B6 40%, #00B4D8 80%, #48CAE4 100%);
     color: white;
     display: flex;
     flex-direction: column;
     position: fixed;
     height: 100vh;
     z-index: 100;
+    overflow: hidden;
+}
+
+.sidebar::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(72,202,228,0.3) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 .logo {
@@ -54,6 +67,8 @@ body {
     font-size: 22px;
     font-weight: 700;
     border-bottom: 1px solid rgba(255,255,255,0.15);
+    position: relative;
+    z-index: 1;
 }
 
 .logo i {
@@ -61,11 +76,14 @@ body {
     background: rgba(255,255,255,0.2);
     padding: 10px;
     border-radius: 12px;
+    backdrop-filter: blur(10px);
 }
 
 .nav-menu {
     flex: 1;
     padding: 20px 12px;
+    position: relative;
+    z-index: 1;
 }
 
 .nav-item {
@@ -89,6 +107,7 @@ body {
     background: rgba(255,255,255,0.25);
     color: white;
     font-weight: 600;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
 }
 
 .nav-item i {
@@ -100,6 +119,8 @@ body {
 .sidebar-footer {
     padding: 20px;
     border-top: 1px solid rgba(255,255,255,0.15);
+    position: relative;
+    z-index: 1;
 }
 
 .disclaimer {
@@ -112,6 +133,7 @@ body {
     background: rgba(255,255,255,0.1);
     padding: 12px;
     border-radius: 10px;
+    backdrop-filter: blur(10px);
 }
 
 .disclaimer i {
@@ -125,10 +147,25 @@ body {
     flex: 1;
     margin-left: 260px;
     padding: 36px;
+    position: relative;
+}
+
+.main-content::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(0,180,216,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
 }
 
 .section {
     display: none;
+    position: relative;
+    z-index: 1;
 }
 
 .section.active {
@@ -148,7 +185,10 @@ body {
 .section-header h1 {
     font-size: 30px;
     font-weight: 700;
-    color: var(--primary-dark);
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin-bottom: 6px;
 }
 
@@ -175,7 +215,24 @@ body {
     box-shadow: var(--shadow);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
 }
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
+}
+
+.stat-card:nth-child(1)::after { background: var(--primary); }
+.stat-card:nth-child(2)::after { background: var(--success); }
+.stat-card:nth-child(3)::after { background: var(--warning); }
+.stat-card:nth-child(4)::after { background: var(--danger); }
 
 .stat-card:hover {
     transform: translateY(-3px);
@@ -221,6 +278,18 @@ body {
     padding: 28px;
     box-shadow: var(--shadow);
     border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 
 .card h2 {
@@ -249,6 +318,8 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
 }
 
 .btn-primary {
@@ -358,6 +429,19 @@ body {
     background: linear-gradient(135deg, #F0F7FA, #E0F4FF);
     cursor: pointer;
     transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-area::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at center, rgba(0,180,216,0.05) 0%, transparent 50%);
+    pointer-events: none;
 }
 
 .upload-area:hover {

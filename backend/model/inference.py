@@ -82,8 +82,9 @@ class DiabCareModel:
         if session is not None:
             try:
                 # Resize to 224x224 for model input
-                img_resized = img_pil.resize((224, 224), Image.BILINEAR)
+                img_resized = img_pil.resize((320, 320), Image.BILINEAR)
                 img_np = np.array(img_resized, dtype=np.float32) / 255.0
+                img_np = (img_np - np.array([0.485, 0.456, 0.406], dtype=np.float32)) / np.array([0.229, 0.224, 0.225], dtype=np.float32)
                 img_np = img_np.transpose(2, 0, 1)  # HWC -> CHW
                 img_np = np.expand_dims(img_np, 0)   # add batch dim
 

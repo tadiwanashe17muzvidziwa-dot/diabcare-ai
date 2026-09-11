@@ -4,14 +4,13 @@ Trains a 2-class model (Normal vs Ulcer) for diabetic foot screening.
 
 USAGE:
   python training/train.py
-  python training/train.py --epochs 50 --imgsz 224
+  python training/train.py --epochs 100 --imgsz 320
 """
 import os
 import sys
 import argparse
 from pathlib import Path
 
-# Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / 'backend'))
 
 
@@ -24,7 +23,6 @@ def train(args):
         print("  Run: python training/download_dataset.py first")
         sys.exit(1)
 
-    # Verify dataset structure
     for split in ['train', 'val']:
         for cls in ['normal', 'ulcer']:
             d = dataset_dir / split / cls
@@ -36,14 +34,13 @@ def train(args):
     print("DiabCare AI - YOLOv8 Classification Training")
     print("=" * 60)
     print(f"  Dataset:  {dataset_dir}")
-    print(f"  Model:    YOLOv8n-cls (nano)")
+    print(f"  Model:    YOLOv8s-cls (small - better accuracy)")
     print(f"  Epochs:   {args.epochs}")
     print(f"  ImgSize:  {args.imgsz}")
     print(f"  Device:   {'CUDA' if args.device != 'cpu' else 'CPU'}")
     print()
 
-    # Train
-    model = YOLO('yolov8n-cls.pt')  # pretrained nano classifier
+    model = YOLO('yolov8s-cls.pt')
     results = model.train(
         data=str(dataset_dir),
         epochs=args.epochs,
@@ -55,12 +52,19 @@ def train(args):
         name='diabcare_cls',
         exist_ok=True,
         pretrained=True,
-        optimizer='auto',
+        optimizer='AdamW',
+        lr0=0.001,
+        lrf=0.01,
+        momentum=0.937,
+        weight_decay=0.0005,
+        warmup_epochs=3,
+        warmup_momentum=0.8,
+        warmup_bias_lr=0.1,
+        cos_lr=True,
         verbose=True,
         seed=42,
     )
 
-    # Copy best model to backend
     best_pt = Path(results.save_dir) / 'weights' / 'best.pt'
     dest = Path(__file__).parent.parent / 'backend' / 'model' / 'best.pt'
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -69,11 +73,10 @@ def train(args):
         import shutil
         shutil.copy2(str(best_pt), str(dest))
         print(f"\n[EXPORTED] best.pt -> {dest}")
-        print("  Your app will now use the trained model instead of demo mode!")
+        print("  Your app will now use the trained model!")
     else:
         print(f"\n[ERROR] best.pt not found at {best_pt}")
 
-    # Print final metrics
     print("\n" + "=" * 60)
     print("Training Complete!")
     print(f"  Results:  {results.save_dir}")
@@ -83,10 +86,10 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train DiabCare AI classifier')
-    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs (default: 30)')
-    parser.add_argument('--imgsz', type=int, default=224, help='Image size (default: 224)')
-    parser.add_argument('--batch', type=int, default=16, help='Batch size (default: 16)')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--imgsz', type=int, default=320, help='Image size')
+    parser.add_argument('--batch', type=int, default=16, help='Batch size')
     parser.add_argument('--device', type=str, default='0', help='Device: 0 for GPU, cpu for CPU')
-    parser.add_argument('--patience', type=int, default=10, help='Early stopping patience')
+    parser.add_argument('--patience', type=int, default=20, help='Early stopping patience')
     args = parser.parse_args()
     train(args)
