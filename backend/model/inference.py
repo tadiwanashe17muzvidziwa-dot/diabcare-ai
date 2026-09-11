@@ -1,43 +1,53 @@
 import os
+import gc
 import traceback
 import numpy as np
 import cv2
 from PIL import Image
-# NOTE: torch / ultralytics are imported lazily inside _load_model() only
-# when best.pt exists. This keeps free-tier (512MB) demo deploys alive.
 
 
 class DiabCareModel:
     def __init__(self):
         self.model = None
         self.demo_mode = True
-        try:
-            import torch  # lazy, may not be installed on slim builds
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        except Exception:
-            self.device = 'cpu'
+        self.model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
         self.classes = ['Normal', 'Ulcer']
-        self.risk_thresholds = {'low': 0.6, 'medium': 0.4, 'high': 0.0}
-        self._load_model()
+        self._check_model()
+
+    def _check_model(self):
+        if not os.path.exists(self.model_path):
+            self.model = None
+            self.demo_mode = True
+            print("No best.pt - running DEMO mode.")
+            return
+        self.demo_mode = False
+        print(f"Found trained model: {self.model_path}")
 
     def _load_model(self):
-        model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
-        if not os.path.exists(model_path):
-            self.model = None
-            self.demo_mode = True
-            print("No best.pt found - running in DEMO mode. "
-                  "Train a 2-class DFU model and place it at backend/model/best.pt "
-                  "for real predictions.")
-            return
+        """Load model on-demand, keeps memory free when idle."""
+        if self.model is not None:
+            return self.model
         try:
             from ultralytics import YOLO
-            self.model = YOLO(model_path)
-            self.demo_mode = False
-            print(f"Loaded trained YOLO model from {model_path}")
+            self.model = YOLO(self.model_path)
+            return self.model
         except Exception as e:
-            print(f"Model loading warning: {e}")
-            self.model = None
+            print(f"Model load error: {e}")
             self.demo_mode = True
+            return None
+
+    def _unload_model(self):
+        """Free memory after prediction."""
+        if self.model is not None:
+            del self.model
+            self.model = None
+            gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
 
     def _demo_result(self):
         note = ("Demo mode: no trained DFU model found. Place your trained "
@@ -78,9 +88,12 @@ class DiabCareModel:
         img_pil, img_array = self.preprocess(image_path)
         demo_note = None
 
-        if self.model is not None and not self.demo_mode:
+        # Load model on-demand for this prediction only
+        model = self._load_model() if not self.demo_mode else None
+
+        if model is not None:
             try:
-                results = self.model(img_pil, verbose=False)
+                results = model(img_pil, verbose=False)
                 if results and len(results) > 0 and getattr(results[0], 'probs', None) is not None:
                     probs = results[0].probs.data.cpu().numpy()
                     if len(probs) == len(self.classes):
@@ -89,13 +102,13 @@ class DiabCareModel:
                         prediction = self.classes[predicted_class]
                     else:
                         prediction, confidence, demo_note = self._demo_result()
-                        print(f"Warning: model has {len(probs)} classes, "
-                              f"expected {len(self.classes)}. Using demo result.")
                 else:
                     prediction, confidence, demo_note = self._demo_result()
             except Exception:
                 traceback.print_exc()
                 prediction, confidence, demo_note = self._demo_result()
+            finally:
+                self._unload_model()
         else:
             prediction, confidence, demo_note = self._demo_result()
 
