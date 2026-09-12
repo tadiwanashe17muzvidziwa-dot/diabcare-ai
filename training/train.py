@@ -1,10 +1,10 @@
 """
-DiabCare AI - YOLOv8 Classification Training
-Trains a 2-class model (Normal vs Ulcer) for diabetic foot screening.
+DiabCare AI - YOLOv8 Classification Training (v3 - Fix Overfitting)
+Uses heavy augmentation + dropout + cosine LR to generalize better.
 
 USAGE:
   python training/train.py
-  python training/train.py --epochs 100 --imgsz 320
+  python training/train.py --epochs 150 --imgsz 320
 """
 import os
 import sys
@@ -31,10 +31,11 @@ def train(args):
                 sys.exit(1)
 
     print("=" * 60)
-    print("DiabCare AI - YOLOv8 Classification Training")
+    print("DiabCare AI - YOLOv8 Classification Training v3")
+    print("  Fix: Heavy augmentation to prevent overfitting")
     print("=" * 60)
     print(f"  Dataset:  {dataset_dir}")
-    print(f"  Model:    YOLOv8s-cls (small - better accuracy)")
+    print(f"  Model:    YOLOv8s-cls (small)")
     print(f"  Epochs:   {args.epochs}")
     print(f"  ImgSize:  {args.imgsz}")
     print(f"  Device:   {'CUDA' if args.device != 'cpu' else 'CPU'}")
@@ -49,18 +50,19 @@ def train(args):
         device=args.device,
         patience=args.patience,
         project=str(Path(__file__).parent.parent / 'training' / 'runs'),
-        name='diabcare_cls',
+        name='diabcare_cls_v3',
         exist_ok=True,
         pretrained=True,
         optimizer='AdamW',
-        lr0=0.001,
+        lr0=0.0005,
         lrf=0.01,
         momentum=0.937,
-        weight_decay=0.0005,
-        warmup_epochs=3,
+        weight_decay=0.001,
+        warmup_epochs=5,
         warmup_momentum=0.8,
         warmup_bias_lr=0.1,
         cos_lr=True,
+        dropout=0.3,
         verbose=True,
         seed=42,
     )
@@ -73,7 +75,6 @@ def train(args):
         import shutil
         shutil.copy2(str(best_pt), str(dest))
         print(f"\n[EXPORTED] best.pt -> {dest}")
-        print("  Your app will now use the trained model!")
     else:
         print(f"\n[ERROR] best.pt not found at {best_pt}")
 
@@ -85,11 +86,11 @@ def train(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train DiabCare AI classifier')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
+    parser = argparse.ArgumentParser(description='Train DiabCare AI classifier v3')
+    parser.add_argument('--epochs', type=int, default=150, help='Number of epochs')
     parser.add_argument('--imgsz', type=int, default=320, help='Image size')
     parser.add_argument('--batch', type=int, default=16, help='Batch size')
     parser.add_argument('--device', type=str, default='0', help='Device: 0 for GPU, cpu for CPU')
-    parser.add_argument('--patience', type=int, default=20, help='Early stopping patience')
+    parser.add_argument('--patience', type=int, default=30, help='Early stopping patience')
     args = parser.parse_args()
     train(args)
